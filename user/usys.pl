@@ -36,7 +36,5 @@ entry("getpid");
 entry("sbrk");
 entry("sleep");
 entry("uptime");
-# 添加trace
-entry("trace");
-# 添加sysinfo
-entry("sysinfo");
+entry("sigalarm");
+entry("sigreturn");

@@ -6,11 +6,6 @@
 #include "memlayout.h"
 #include "spinlock.h"
 #include "proc.h"
-#include "sysinfo.h"
-
-// 函数声明
-void freebytes(uint64 *);
-void procnum(uint64 *);
 
 uint64
 sys_exit(void)
@@ -75,6 +70,8 @@ sys_sleep(void)
     sleep(&ticks, &tickslock);
   }
   release(&tickslock);
+  //添加backtrace的调用
+  backtrace();
   return 0;
 }
 
@@ -101,35 +98,32 @@ sys_uptime(void)
   return xticks;
 }
 
-// 添加sys_trace函数
-uint64
-sys_trace(void)
-{
-  int mask;
-  // argint检索第n个系统调用函数
-  if(argint(0,&mask) < 0)
-    return -1;
-  struct proc *p = myproc();
-  p->trace_mask = mask;
+uint64 
+sys_sigreturn(void){
+  struct proc* p=myproc();
+  //恢复现场
+  memmove(p->trapframe,&(p->resume),sizeof(struct trapframe));
+  //清零计时器
+  p->curticks=0;
   return 0;
 }
 
-// 添加sys_sysinfo函数
-uint64
-sys_sysinfo(void)
-{
-  // 暂存系统信息
-  struct sysinfo info;
-  // 给info赋值
-  freebytes(&(info.freemem));
-  procnum(&(info.nproc));
-
-  // 获取虚拟地址
-  uint64 destaddr;
-  argaddr(0,&destaddr);
-
-  //从kernel拷贝到user
-  if(copyout(myproc()->pagetable, destaddr, (char*)&info, sizeof info) < 0)
+uint64 
+sys_sigalarm(void){
+  //保存ticks和handler到proc结构中
+  int ticks;
+  if(argint(0, &ticks) < 0){
     return -1;
+  }
+  uint64 handler;
+  if(argaddr(1,&handler)<0){
+    return -1;
+  }
+  struct proc* p = myproc();
+  p->ticks=ticks;
+  p->handler=handler;
+  // 重置过去的时钟数
+  p->curticks = 0;
+
   return 0;
 }
